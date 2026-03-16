@@ -15,9 +15,19 @@ function current_user(): ?array {
         return null;
     }
 
-    $stmt = db()->prepare('SELECT id, username, first_name, last_name, email, amazon_tracking_id, is_admin, points_balance, total_points_earned, created_at FROM users WHERE id = ? LIMIT 1');
+    try {
+        $stmt = db()->prepare('SELECT id, username, first_name, last_name, email, amazon_tracking_id, is_admin, points_balance, total_points_earned, created_at FROM users WHERE id = ? LIMIT 1');
+    } catch (PDOException $e) {
+        $stmt = db()->prepare('SELECT id, username, email, amazon_tracking_id, points_balance, total_points_earned, created_at FROM users WHERE id = ? LIMIT 1');
+    }
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch();
+
+    if ($user) {
+        $user['first_name'] = $user['first_name'] ?? '';
+        $user['last_name']  = $user['last_name'] ?? '';
+        $user['is_admin']   = $user['is_admin'] ?? 0;
+    }
 
     return $user ?: null;
 }
