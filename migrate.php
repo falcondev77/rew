@@ -50,6 +50,23 @@ run($db, 'TABLE reward_redemptions', "CREATE TABLE IF NOT EXISTS reward_redempti
   INDEX idx_redemption_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $done, $errors);
 
+$adminHash = password_hash('Pianeta123!', PASSWORD_BCRYPT);
+try {
+    $stmt = $db->prepare("SELECT id FROM users WHERE email = 'admin@example.com' LIMIT 1");
+    $stmt->execute();
+    if ($stmt->fetch()) {
+        $upd = $db->prepare("UPDATE users SET password_hash = ?, is_admin = 1, username = 'admin', first_name = 'Admin', last_name = 'System', amazon_tracking_id = 'admin-21' WHERE email = 'admin@example.com'");
+        $upd->execute([$adminHash]);
+        $done[] = 'Admin aggiornato (admin@example.com)';
+    } else {
+        $ins = $db->prepare("INSERT INTO users (username, first_name, last_name, email, password_hash, amazon_tracking_id, is_admin, points_balance, total_points_earned) VALUES ('admin','Admin','System','admin@example.com',?,'admin-21',1,0,0)");
+        $ins->execute([$adminHash]);
+        $done[] = 'Admin creato (admin@example.com)';
+    }
+} catch (PDOException $e) {
+    $errors[] = 'Admin insert/update: ' . $e->getMessage();
+}
+
 ?><!DOCTYPE html>
 <html lang="it">
 <head>
