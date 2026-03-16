@@ -15,11 +15,24 @@ function current_user(): ?array {
         return null;
     }
 
-    $stmt = db()->prepare('SELECT id, username, email, amazon_tracking_id, points_balance, total_points_earned, created_at FROM users WHERE id = ? LIMIT 1');
+    $stmt = db()->prepare('SELECT id, username, first_name, last_name, email, amazon_tracking_id, is_admin, points_balance, total_points_earned, created_at FROM users WHERE id = ? LIMIT 1');
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch();
 
     return $user ?: null;
+}
+
+function is_admin(): bool {
+    $user = current_user();
+    return $user && !empty($user['is_admin']);
+}
+
+function require_admin(): array {
+    $user = require_auth();
+    if (empty($user['is_admin'])) {
+        redirect('dashboard.php');
+    }
+    return $user;
 }
 
 function require_auth(): array {
@@ -277,7 +290,97 @@ function build_affiliate_url(string $asin, string $username): string {
 }
 
 function get_dashboard_activity(int $userId): array {
-    $stmt = db()->prepare('SELECT product_title, asin, source_url, affiliate_url, category_label, points_awarded, status, created_at FROM affiliate_links WHERE user_id = ? ORDER BY id DESC LIMIT 10');
+    $stmt = db()->prepare('SELECT product_title, asin, source_url, affiliate_url, category_label, points_awarded, status, auto_confirmed, created_at FROM affiliate_links WHERE user_id = ? ORDER BY id DESC LIMIT 10');
     $stmt->execute([$userId]);
     return $stmt->fetchAll();
+}
+
+function get_all_users(): array {
+    return db()->query('SELECT id, username, first_name, last_name, email, is_admin, points_balance, total_points_earned, created_at FROM users ORDER BY created_at DESC')->fetchAll();
+}
+
+function get_all_links(): array {
+    $sql = 'SELECT al.*, u.username, u.email AS user_email
+            FROM affiliate_links al
+            JOIN users u ON u.id = al.user_id
+            ORDER BY al.created_at DESC';
+    return db()->query($sql)->fetchAll();
+}
+
+function get_pending_links(): array {
+    $sql = 'SELECT al.*, u.username, u.email AS user_email
+            FROM affiliate_links al
+            JOIN users u ON u.id = al.user_id
+            WHERE al.status = "pending"
+            ORDER BY al.created_at DESC';
+    return db()->query($sql)->fetchAll();
+}
+
+function approve_link(int $linkId): bool {
+    $db = db();
+    $stmt = $db->prepare('SELECT id, user_id, points_awarded, status FROM affiliate_links WHERE id = ? LIMIT 1');
+    $stmt->execute([$linkId]);
+    $link = $stmt->fetch();
+
+    if (!$link || $link['status'] !== 'pending') {
+        return false;
+    }
+
+    $db->beginTransaction();
+    try {
+        $db->prepare('UPDATE affiliate_links SET status = "approved" WHERE id = ?')->execute([$linkId]);
+        $db->prepare('UPDATE users SET points_balance = points_balance + ?, total_points_earned = total_points_earned + ? WHERE id = ?')
+           ->execute([$link['points_awarded'], $link['points_awarded'], $link['user_id']]);
+        $db->commit();
+        return true;
+    } catch (\Throwable $e) {
+        $db->rollBack();
+        return false;
+    }
+}
+
+function reject_link(int $linkId): bool {
+    $stmt = db()->prepare('UPDATE affiliate_links SET status = "rejected" WHERE id = ? AND status = "pending"');
+    $stmt->execute([$linkId]);
+    return $stmt->rowCount() > 0;
+}
+
+function auto_confirm_link(int $linkId, int $userId): bool {
+    $db = db();
+    $stmt = $db->prepare('SELECT id, user_id, points_awarded, status FROM affiliate_links WHERE id = ? AND user_id = ? AND status = "pending" LIMIT 1');
+    $stmt->execute([$linkId, $userId]);
+    $link = $stmt->fetch();
+
+    if (!$link) {
+        return false;
+    }
+
+    $db->beginTransaction();
+    try {
+        $db->prepare('UPDATE affiliate_links SET status = "approved", auto_confirmed = 1 WHERE id = ?')->execute([$linkId]);
+        $db->prepare('UPDATE users SET points_balance = points_balance + ?, total_points_earned = total_points_earned + ? WHERE id = ?')
+           ->execute([$link['points_awarded'], $link['points_awarded'], $link['user_id']]);
+        $db->commit();
+        return true;
+    } catch (\Throwable $e) {
+        $db->rollBack();
+        return false;
+    }
+}
+
+function get_all_rewards(): array {
+    return db()->query('SELECT * FROM rewards ORDER BY created_at DESC')->fetchAll();
+}
+
+function get_active_rewards(): array {
+    return db()->query('SELECT * FROM rewards WHERE is_active = 1 ORDER BY points_cost ASC')->fetchAll();
+}
+
+function get_all_redemptions(): array {
+    $sql = 'SELECT rr.*, u.username, r.name AS reward_name, r.points_cost
+            FROM reward_redemptions rr
+            JOIN users u ON u.id = rr.user_id
+            JOIN rewards r ON r.id = rr.reward_id
+            ORDER BY rr.created_at DESC';
+    return db()->query($sql)->fetchAll();
 }

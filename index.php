@@ -13,10 +13,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'register') {
         $username = trim($_POST['username'] ?? '');
+        $firstName = trim($_POST['first_name'] ?? '');
+        $lastName = trim($_POST['last_name'] ?? '');
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
 
-        if ($username === '' || $email === '' || $password === '') {
+        if ($username === '' || $email === '' || $password === '' || $firstName === '' || $lastName === '') {
             $error = 'Compila tutti i campi di registrazione.';
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'Email non valida.';
@@ -30,8 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Esiste già un account con questa email o username.';
             } else {
                 $trackingId = normalize_username_to_tracking_id($username);
-                $insert = db()->prepare('INSERT INTO users (username, email, password_hash, amazon_tracking_id) VALUES (?, ?, ?, ?)');
-                $insert->execute([$username, $email, password_hash($password, PASSWORD_DEFAULT), $trackingId]);
+                $insert = db()->prepare('INSERT INTO users (username, first_name, last_name, email, password_hash, amazon_tracking_id) VALUES (?, ?, ?, ?, ?, ?)');
+                $insert->execute([$username, $firstName, $lastName, $email, password_hash($password, PASSWORD_DEFAULT), $trackingId]);
                 $success = 'Registrazione completata. Ora puoi accedere.';
             }
         }
@@ -41,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
 
-        $stmt = db()->prepare('SELECT id, password_hash FROM users WHERE email = ? LIMIT 1');
+        $stmt = db()->prepare('SELECT id, password_hash, is_admin FROM users WHERE email = ? LIMIT 1');
         $stmt->execute([$email]);
         $user = $stmt->fetch();
 
@@ -49,7 +51,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Credenziali non valide.';
         } else {
             $_SESSION['user_id'] = (int) $user['id'];
-            redirect('dashboard.php');
+            if (!empty($user['is_admin'])) {
+                redirect('admin.php');
+            } else {
+                redirect('dashboard.php');
+            }
         }
     }
 }
@@ -97,8 +103,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <form method="post" class="panel">
                     <h2>Registrati</h2>
                     <input type="hidden" name="action" value="register">
+                    <div class="form-row-inline">
+                        <div>
+                            <label>Nome</label>
+                            <input type="text" name="first_name" required placeholder="Mario">
+                        </div>
+                        <div>
+                            <label>Cognome</label>
+                            <input type="text" name="last_name" required placeholder="Rossi">
+                        </div>
+                    </div>
                     <label>Username</label>
-                    <input type="text" name="username" required>
+                    <input type="text" name="username" required placeholder="mariorossi">
                     <label>Email</label>
                     <input type="email" name="email" required>
                     <label>Password</label>

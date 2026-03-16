@@ -51,9 +51,8 @@ if (preg_match('#/([A-Za-z0-9\-\_]+?)/dp/#', $sourceUrl, $matches)) {
 }
 
 $db = db();
-$db->beginTransaction();
 try {
-    $stmt = $db->prepare('INSERT INTO affiliate_links (user_id, product_title, asin, source_url, affiliate_url, category_key, category_label, amazon_rate, share_percent, points_awarded, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $stmt = $db->prepare('INSERT INTO affiliate_links (user_id, product_title, asin, source_url, affiliate_url, category_key, category_label, amazon_rate, share_percent, product_price, points_awarded, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $stmt->execute([
         $user['id'],
         $title,
@@ -64,16 +63,13 @@ try {
         $categoryRule['label'],
         $pointsInfo['amazon_rate'],
         $pointsInfo['share_percent'],
+        $pointsInfo['product_price'],
         $pointsInfo['estimated_points'],
-        'Pending',
+        'pending',
         $categoryReason . ' | prezzo=' . number_format($pointsInfo['product_price'], 2, '.', '') . ' | tag=' . $mainTag . ' | subtag=' . $subtag
     ]);
-
-    $update = $db->prepare('UPDATE users SET points_balance = points_balance + ?, total_points_earned = total_points_earned + ? WHERE id = ?');
-    $update->execute([$pointsInfo['estimated_points'], $pointsInfo['estimated_points'], $user['id']]);
-    $db->commit();
+    $linkId = (int) $db->lastInsertId();
 } catch (Throwable $e) {
-    $db->rollBack();
     http_response_code(500);
     echo json_encode([
         'error' => 'Errore durante il salvataggio della conversione',
@@ -84,6 +80,7 @@ try {
 
 echo json_encode([
     'success' => true,
+    'link_id' => $linkId,
     'asin' => $asin,
     'title' => $title,
     'category' => $categoryRule['label'],
