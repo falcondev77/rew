@@ -76,16 +76,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="auth-shell">
         <div class="auth-hero">
             <div class="brand-row">
-                <div class="brand-icon">💳</div>
+                <div class="brand-icon">&#9733;</div>
                 <div>
                     <h1><?= e(SITE_NAME) ?></h1>
-                    <p>Trasforma link Amazon in link affiliati, assegna punti e premia i tuoi utenti.</p>
+                    <p>Piattaforma di affiliazione Amazon per il tuo team.</p>
                 </div>
             </div>
             <ul class="hero-list">
-                <li>Dashboard stile premium come nel mockup</li>
-                <li>Tracking ID per utente</li>
-                <li>Punti automatici in base alla categoria</li>
+                <li>Converti link Amazon con il tuo Tracking ID</li>
+                <li>Punti automatici in base alla categoria prodotto</li>
+                <li>Riscatta premi con i punti accumulati</li>
             </ul>
         </div>
 

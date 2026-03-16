@@ -73,7 +73,7 @@ $totalEarned = array_sum(array_column($users, 'total_points_earned'));
                 </div>
             </div>
             <div class="ov-card">
-                <div class="ov-icon ov-icon-purple">&#127873;</div>
+                <div class="ov-icon ov-icon-gray">&#127873;</div>
                 <div class="ov-data">
                     <span class="ov-value <?= count($pendingRedemptions) > 0 ? 'text-warning' : 'text-success' ?>"><?= count($pendingRedemptions) ?></span>
                     <span class="ov-label">Riscatti in attesa</span>
